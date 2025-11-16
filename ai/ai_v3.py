@@ -4,6 +4,7 @@ import base64
 import json
 import os
 import re
+from dotenv import load_dotenv
 
 def floorplan_png_to_json(png_path, api_key, output_path=None):
     """
@@ -17,7 +18,19 @@ def floorplan_png_to_json(png_path, api_key, output_path=None):
     Returns:
         dict: JSON with walls (with coordinates) and rooms (with center points)
     """
-    
+
+    # Get API key from environment if not provided
+    # if api_key is None:
+    #     api_key = os.getenv('ANTHROPIC_API_KEY')
+    #     if not api_key:
+    #         raise ValueError(
+    #             "API key not found. Please set ANTHROPIC_API_KEY environment variable "
+    #             "or pass api_key parameter."
+    #         )
+
+    load_dotenv()
+    api_key = os.getenv('ANTHROPIC_API_KEY')
+
     # Read and encode the PNG file
     with open(png_path, 'rb') as image_file:
         image_data = base64.standard_b64encode(image_file.read()).decode('utf-8')
@@ -26,32 +39,57 @@ def floorplan_png_to_json(png_path, api_key, output_path=None):
     client = anthropic.Anthropic(api_key=api_key)
     
     # Craft a detailed prompt for floor plan analysis
-    prompt = """Analyze this floor plan image and extract the architectural data in the following JSON format:
+#     prompt = """Analyze this floor plan image and extract the architectural data in the following JSON format:
+#
+# {
+#   "walls": [
+#     {
+#       "wall_id": "wall_1",
+#       "start_point": {"x": <float>, "y": <float>},
+#       "end_point": {"x": <float>, "y": <float>}
+#     }
+#   ],
+#   "rooms": [
+#     {
+#       "room_name": "<ROOM_TYPE>",
+#       "center_point": {"x": <float>, "y": <float>}
+#     }
+#   ]
+# }
+#
+# Instructions:
+# 1. Identify all walls and their start/end coordinates
+# 2. Identify all rooms and their center points
+# 3. Use appropriate room names (BEDROOM, KITCHEN, BATHROOM, LIVING ROOM, etc.)
+# 4. Provide coordinates with decimal precision (e.g., 32.66399064)
+# 5. Return ONLY the JSON structure, no additional text
+# 6. Ensure all walls are numbered sequentially (wall_1, wall_2, etc.)"""
 
-{
-  "walls": [
-    {
-      "wall_id": "wall_1",
-      "start_point": {"x": <float>, "y": <float>},
-      "end_point": {"x": <float>, "y": <float>}
-    }
-  ],
-  "rooms": [
-    {
-      "room_name": "<ROOM_TYPE>",
-      "center_point": {"x": <float>, "y": <float>}
-    }
-  ]
-}
+    prompt = """Analyze this floor plan image and extract ALL architectural elements in the following JSON format:
 
-Instructions:
-1. Identify all walls and their start/end coordinates
-2. Identify all rooms and their center points
-3. Use appropriate room names (BEDROOM, KITCHEN, BATHROOM, LIVING ROOM, etc.)
-4. Provide coordinates with decimal precision (e.g., 32.66399064)
-5. Return ONLY the JSON structure, no additional text
-6. Ensure all walls are numbered sequentially (wall_1, wall_2, etc.)"""
-    
+    {
+      "walls": [...],
+      "rooms": [...]
+    }
+
+    CRITICAL INSTRUCTIONS:
+    1. Identify EVERY SINGLE wall segment in the floor plan, including:
+       - Exterior perimeter walls
+       - Interior partition walls
+       - Short wall segments around doorways
+       - Walls partially obscured by fixtures
+       - Red text representing dimensions should NOT be treated as walls
+       - Green lines representing doors should NOT be treated as walls
+       - Magenta lines representing dimensions should NOT be treated as walls
+    2. Break walls at intersections (T-junctions, corners, doorways)
+    3. For each wall, provide precise start and end coordinates
+    4. Number walls sequentially starting from wall_1
+    5. Double-check that you haven't missed any walls
+    6. Use appropriate room names (BEDROOM, KITCHEN, BATHROOM, LIVING ROOM, etc.)
+    7. Return ONLY the JSON structure, no additional text"""
+
+    prompt += "\n\nAfter generating the JSON, verify you've captured all walls by counting them in the image."
+
     # Send the image to Claude for analysis
     message = client.messages.create(
         model="claude-sonnet-4-20250514",
@@ -148,12 +186,12 @@ def png_to_json_with_base64(png_path, output_path=None):
 if __name__ == "__main__":
     # Replace with your actual API key
     # API_KEY = "your-api-key-here"
-    API_KEY = ""
+    # API_KEY = ""
 
     # Convert floor plan PNG to structured JSON
     result = floorplan_png_to_json(
         png_path="floorplan.png",
-        api_key=API_KEY,
+        api_key=None,
         output_path="floorplan_output.json"
     )
     
