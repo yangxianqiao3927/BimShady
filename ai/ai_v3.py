@@ -41,7 +41,7 @@ def floorplan_png_to_json(png_path: str, api_key: Optional[str] = None, output_p
     # Initialize the Anthropic client
     client = anthropic.Anthropic(api_key=api_key)
 
-    # Enhanced prompt for accurate floor plan extraction
+    # Enhanced prompt with emphasis on detecting closely-spaced parallel walls
     prompt = """Analyze this floor plan image and extract ALL architectural elements in the following EXACT JSON format:
 
 {
@@ -61,23 +61,44 @@ def floorplan_png_to_json(png_path: str, api_key: Optional[str] = None, output_p
 }
 
 CRITICAL INSTRUCTIONS FOR WALLS:
-1. Identify EVERY wall segment, including:
+1. Identify EVERY SINGLE wall segment, including:
    - Exterior perimeter walls
    - Interior partition walls
    - Short wall segments around doorways
    - Walls around fixtures (closets, bathrooms)
-2. Break walls at ALL intersections (T-junctions, corners, doorways)
-3. Each wall segment should have sequential numbering (wall_1, wall_2, wall_3, etc.)
-4. Provide precise floating-point coordinates with high precision (e.g., 32.45638053)
-5. IGNORE the following (do NOT treat as walls):
+
+2. **PAY SPECIAL ATTENTION TO CLOSELY-SPACED PARALLEL WALLS:**
+   - Look carefully for TWO separate parallel walls that are very close together (adjacent)
+   - These often appear as slightly thicker lines or double lines
+   - Even if two walls are only a few pixels apart, they are SEPARATE walls
+   - Common in floor plans where rooms share a partition with small gap/cavity
+   - Each individual line must be traced as a separate wall segment
+
+3. Break walls at ALL intersections:
+   - T-junctions (where one wall meets another perpendicularly)
+   - L-corners (90-degree corners)
+   - Doorway openings (wall stops, gap, wall continues)
+   - Cross intersections (where walls cross)
+
+4. Each wall segment should have sequential numbering (wall_1, wall_2, wall_3, etc.)
+
+5. Provide precise floating-point coordinates with high precision (e.g., 32.45638053)
+   - Measure from top-left corner of the image as origin (0, 0)
+   - X increases to the right
+   - Y increases downward
+
+6. **DO NOT IGNORE OR MERGE ADJACENT PARALLEL WALLS** - they must be separate entries
+
+7. IGNORE the following (do NOT treat as walls):
    - Red text/dimensions
-   - Green lines (doors)
+   - Green lines (doors/door swings)
    - Magenta lines (dimension lines)
    - Furniture or fixtures drawn in the plan
+   - Dashed or dotted lines (unless they represent actual walls)
 
 CRITICAL INSTRUCTIONS FOR ROOMS:
 1. Identify all distinct rooms/spaces
-2. Use standard room names: OFFICE, BEDROOM, BED, BATH, BATHROOM, KITCHEN, LIVING ROOM, DINING ROOM, CLOSET, HALLWAY, etc.
+2. Use standard room names: OFFICE, BEDROOM, BED, BATH, BATHROOM, KITCHEN, LIVING ROOM, DINING ROOM, CLOSET, HALLWAY, ENTRY, LAUNDRY, etc.
 3. Provide the geometric center point of each room
 4. Use high-precision floating-point coordinates
 
@@ -87,16 +108,19 @@ OUTPUT REQUIREMENTS:
 - Use decimal precision for all coordinates (minimum 8 decimal places)
 - Number walls sequentially without gaps
 
-Before finalizing, verify:
-✓ All visible walls are captured
+VERIFICATION CHECKLIST before finalizing:
+✓ Count every black/dark line in the image - each is a separate wall
+✓ Check for closely-spaced parallel walls (they look like thick or double lines)
+✓ Verify walls are broken at every intersection
 ✓ All rooms are identified
-✓ JSON is valid and complete"""
+✓ JSON is valid and complete
+✓ No walls are merged or missing"""
 
     try:
         # Send the image to Claude for analysis
         message = client.messages.create(
             model="claude-sonnet-4-20250514",
-            max_tokens=8192,  # Increased for larger floor plans
+            max_tokens=16384,  # Increased for complex floor plans with many walls
             messages=[
                 {
                     "role": "user",
@@ -264,7 +288,57 @@ def print_summary(data: Dict) -> None:
         for room in rooms:
             print(f"   - {room['room_name']}")
 
+    # Detect potential closely-spaced parallel walls
+    print(f"\n🔍 Analyzing wall spacing...")
+    close_walls = detect_close_parallel_walls(walls)
+    if close_walls:
+        print(f"   Found {len(close_walls)} pairs of closely-spaced parallel walls:")
+        for pair in close_walls[:5]:  # Show first 5 pairs
+            print(f"   - {pair[0]} and {pair[1]} (distance: {pair[2]:.2f})")
+    else:
+        print(f"   No closely-spaced parallel walls detected")
+
     print("=" * 50 + "\n")
+
+
+def detect_close_parallel_walls(walls: List[Dict], threshold: float = 10.0) -> List[tuple]:
+    """
+    Detect pairs of walls that are parallel and close to each other.
+
+    Args:
+        walls: List of wall dictionaries
+        threshold: Maximum distance between parallel walls to be considered "close"
+
+    Returns:
+        List of tuples: (wall_id_1, wall_id_2, distance)
+    """
+    close_pairs = []
+
+    for i, wall1 in enumerate(walls):
+        for wall2 in walls[i + 1:]:
+            # Calculate if walls are parallel
+            dx1 = wall1['end_point']['x'] - wall1['start_point']['x']
+            dy1 = wall1['end_point']['y'] - wall1['start_point']['y']
+            dx2 = wall2['end_point']['x'] - wall2['start_point']['x']
+            dy2 = wall2['end_point']['y'] - wall2['start_point']['y']
+
+            # Check if parallel (cross product near zero)
+            cross = abs(dx1 * dy2 - dy1 * dx2)
+
+            if cross < 1.0:  # Parallel threshold
+                # Calculate minimum distance between wall segments
+                # Simplified: distance between midpoints
+                mid1_x = (wall1['start_point']['x'] + wall1['end_point']['x']) / 2
+                mid1_y = (wall1['start_point']['y'] + wall1['end_point']['y']) / 2
+                mid2_x = (wall2['start_point']['x'] + wall2['end_point']['x']) / 2
+                mid2_y = (wall2['start_point']['y'] + wall2['end_point']['y']) / 2
+
+                distance = ((mid1_x - mid2_x) ** 2 + (mid1_y - mid2_y) ** 2) ** 0.5
+
+                if distance < threshold:
+                    close_pairs.append((wall1['wall_id'], wall2['wall_id'], distance))
+
+    return close_pairs
 
 
 def png_to_json_with_base64(png_path: str, output_path: Optional[str] = None) -> Dict:
