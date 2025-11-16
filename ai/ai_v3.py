@@ -148,7 +148,7 @@ def png_to_json_with_base64(png_path, output_path=None):
 if __name__ == "__main__":
     # Replace with your actual API key
     # API_KEY = "your-api-key-here"
-    API_KEY = "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"
+    API_KEY = ""
 
     # Convert floor plan PNG to structured JSON
     result = floorplan_png_to_json(
