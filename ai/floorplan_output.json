@@ -1,0 +1,111 @@
+{
+  "walls": [
+    {
+      "wall_id": "wall_1",
+      "start_point": {
+        "x": 50.0,
+        "y": 50.0
+      },
+      "end_point": {
+        "x": 450.0,
+        "y": 50.0
+      }
+    },
+    {
+      "wall_id": "wall_2",
+      "start_point": {
+        "x": 450.0,
+        "y": 50.0
+      },
+      "end_point": {
+        "x": 450.0,
+        "y": 200.0
+      }
+    },
+    {
+      "wall_id": "wall_3",
+      "start_point": {
+        "x": 450.0,
+        "y": 200.0
+      },
+      "end_point": {
+        "x": 50.0,
+        "y": 200.0
+      }
+    },
+    {
+      "wall_id": "wall_4",
+      "start_point": {
+        "x": 50.0,
+        "y": 200.0
+      },
+      "end_point": {
+        "x": 50.0,
+        "y": 50.0
+      }
+    },
+    {
+      "wall_id": "wall_5",
+      "start_point": {
+        "x": 50.0,
+        "y": 150.0
+      },
+      "end_point": {
+        "x": 450.0,
+        "y": 150.0
+      }
+    },
+    {
+      "wall_id": "wall_6",
+      "start_point": {
+        "x": 200.0,
+        "y": 50.0
+      },
+      "end_point": {
+        "x": 200.0,
+        "y": 150.0
+      }
+    },
+    {
+      "wall_id": "wall_7",
+      "start_point": {
+        "x": 250.0,
+        "y": 150.0
+      },
+      "end_point": {
+        "x": 250.0,
+        "y": 200.0
+      }
+    }
+  ],
+  "rooms": [
+    {
+      "room_name": "BEDROOM",
+      "center_point": {
+        "x": 125.0,
+        "y": 100.0
+      }
+    },
+    {
+      "room_name": "LIVING ROOM",
+      "center_point": {
+        "x": 325.0,
+        "y": 100.0
+      }
+    },
+    {
+      "room_name": "OFFICE",
+      "center_point": {
+        "x": 125.0,
+        "y": 175.0
+      }
+    },
+    {
+      "room_name": "OFFICE",
+      "center_point": {
+        "x": 350.0,
+        "y": 175.0
+      }
+    }
+  ]
+}
